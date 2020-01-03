@@ -1,4 +1,4 @@
-# Some Graphics Results from CSC418 & CSC2549 Assignments
+# Some Graphics Results From My CSC418 & CSC2549 Assignments
 
 ## 3D Mass Spring Bunny, Linearly Implicit Euler
 ![Poking and prodding Terry the Bunny](videos/Bunny.gif)
