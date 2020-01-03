@@ -1,4 +1,5 @@
 # Some Graphics Results From My CSC418 & CSC2549 Assignments
+All assignments are done by C++
 
 ## 3D Mass Spring Bunny, Linearly Implicit Euler
 ![Poking and prodding Terry the Bunny](videos/Bunny.gif)
