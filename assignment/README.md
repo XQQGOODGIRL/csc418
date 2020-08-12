@@ -2,19 +2,19 @@
 All assignments are done by C++ or GLSL
 
 ## 3D Mass Spring Bunny, Linearly Implicit Euler
-![Poking and prodding Terry the Bunny](videos/Bunny.gif)
+![Poking and prodding Terry the Bunny](gif/Bunny.gif)
 
 ## Skinned 3D FEM Bunny, Linearly Implicit Euler
-![Poking and prodding Terry the Bunny](videos/FEM_bunny.gif)
+![Poking and prodding Terry the Bunny](gif/FEM_bunny.gif)
 
 ## FEM Cloth Simulation, Simple Collision
-![Poking and prodding Terry the Bunny](videos/cloth.gif)
+![Poking and prodding Terry the Bunny](gif/cloth.gif)
 
 ## Rigid Body Simulation
-![Poking and prodding Terry the Bunny](videos/rigid_ring.gif)
+![Poking and prodding Terry the Bunny](gif/rigid_ring.gif)
 
 ## Rigid Body Collision
-![Poking and prodding Terry the Bunny](videos/rigid_collision.gif)
+![Poking and prodding Terry the Bunny](gif/rigid_collision.gif)
 
 ## Earth Simulation
-![Poking and prodding Terry the Bunny](videos/1578033918162365.gif)
+![Poking and prodding Terry the Bunny](gif/1578033918162365.gif)
