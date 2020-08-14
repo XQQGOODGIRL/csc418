@@ -16,9 +16,6 @@ namespace Util{
         int n_celly;
         int n_cellz;
         double g_cell_size;
-        double g_x;
-        double g_z;
-        double g_y;
         Eigen::Vector3d min_vert;
         Eigen::Vector3d max_vert;
         Eigen::VectorXd vx;

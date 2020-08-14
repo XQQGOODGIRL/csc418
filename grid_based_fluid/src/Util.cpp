@@ -13,17 +13,13 @@ namespace Util{
     }
     
     void MacGrid::init(double l, double w, double h, double grid_size){
-        g_x = 2 * l;
-        g_y = 3 * h;
-        g_z = 2 * w;
-        
+        g_cell_size = grid_size;
         min_vert = Eigen::Vector3d(-l, -h, -w);
         max_vert = Eigen::Vector3d(l, h, w);
-        g_cell_size = grid_size;
         
-        n_cellx = g_x / grid_size;  // # of cells
-        n_celly = g_y / grid_size;
-        n_cellz = g_z / grid_size;
+        n_cellx = 2*l / grid_size;  // # of cells
+        n_celly = 4*h / grid_size;
+        n_cellz = 2*w / grid_size;
 
         p.resize(n_cellx * n_celly * n_cellz);
         vx.resize((n_cellx + 1) * n_celly * n_cellz);
@@ -88,14 +84,13 @@ namespace Util{
             pos.row(8*n+6) = min_vert + Eigen::Vector3d(pxl, pyf, pzb);
             pos.row(8*n+7) = min_vert + Eigen::Vector3d(pxr, pyf, pzb);
             for (int i = 0; i < 8; i++){
-                // jitter pos
-                double jitterX = ((rand() % 51) - 25) / 100. * dx;
-                double jitterY = ((rand() % 51) - 25) / 100. * dx;
-                double jitterZ = ((rand() % 51) - 25) / 100. * dx;
+                // jitter=0.02  dx/4=0.025
+                double jitterX = ((rand() % 41) - 20) / 100. * dx;
+                double jitterY = ((rand() % 41) - 20) / 100. * dx;
+                double jitterZ = ((rand() % 41) - 20) / 100. * dx;
                 pos.row(8*n+i) += Eigen::Vector3d(jitterX, jitterY, jitterZ);
                 
                 gridIndex.push_back((n_z*n_y)*a+n_z*b+c);
-                //grid3dId.push_back(Eigen::Vector3i(a, b, c));
                 
                 vel.push_back(Eigen::Vector3d(0., 0., 0.));
             }

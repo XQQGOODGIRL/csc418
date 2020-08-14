@@ -152,8 +152,8 @@ void Visualize::setup(const Util::MarkerParticle &marker_particles, bool ps_plot
 
 
 void Visualize::update_particle_positions(Eigen::MatrixXd pos) {
-    
-    g_viewer.data().add_points(pos,Eigen::RowVector3d(0,0,1));
+    //g_viewer.data().clear_points();
+    g_viewer.data().set_points(pos,Eigen::RowVector3d(0,0,1));
     g_viewer.data().point_size = 3.;
     
 }
