@@ -8,7 +8,7 @@
 ![Ellipsoid fluid example](data/ellipsoid_ex.jpg)
 
 ## TODO
-* Make it faaster and prettier!
+* Make it faaster and prettier and more interactive!!
 * Other advection algorithm
 * Level set and Signed distance 
 * A fluid bunny
