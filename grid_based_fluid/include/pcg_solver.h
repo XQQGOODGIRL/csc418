@@ -10,6 +10,7 @@
 #include <cmath>
 #include "sparse_matrix.h"
 #include "blas_wrapper.h"
+#include <iostream>
 
 //============================================================================
 // A simple compressed sparse column data structure (with separate diagonal)
@@ -242,42 +243,57 @@ struct PCGSolver
 
    bool solve(const SparseMatrix<T> &matrix, const std::vector<T> &rhs, std::vector<T> &result, T &residual_out, int &iterations_out) 
    {
+       
       unsigned int n=matrix.n;
-      if(m.size()!=n){ m.resize(n); s.resize(n); z.resize(n); r.resize(n); }
+      if(m.size()!=n){
+         // std::cout<<"hey\n";
+          m.resize(n); s.resize(n); z.resize(n); r.resize(n);
+      }
       zero(result);
       r=rhs;
+     // std::cout<<"hey2\n";
       residual_out=BLAS::abs_max(r);
+     // std::cout<<"hey3\n";
       if(residual_out==0) {
          iterations_out=0;
          return true;
       }
       double tol=tolerance_factor*residual_out;
-
       form_preconditioner(matrix);
+      //std::cout<<"form\n";
       apply_preconditioner(r, z);
+       //std::cout<<"apply\n";
       double rho=BLAS::dot(z, r);
       if(rho==0 || rho!=rho) {
          iterations_out=0;
          return false;
       }
-
       s=z;
       fixed_matrix.construct_from_matrix(matrix);
+       //std::cout<<"construct\n";
       int iteration;
       for(iteration=0; iteration<max_iterations; ++iteration){
+          //std::cout<<iteration<<"\n";
          multiply(fixed_matrix, s, z);
+          //std::cout<<"multi\n";
          double alpha=rho/BLAS::dot(s, z);
+         //std::cout<<"dot\n";
          BLAS::add_scaled(alpha, s, result);
+         //std::cout<<"add1\n";
          BLAS::add_scaled(-alpha, z, r);
+          //std::cout<<"add2\n";
          residual_out=BLAS::abs_max(r);
+          //std::cout<<"abs\n";
          if(residual_out<=tol) {
             iterations_out=iteration+1;
             return true; 
          }
          apply_preconditioner(r, z);
+          //std::cout<<"applyp\n";
          double rho_new=BLAS::dot(z, r);
          double beta=rho_new/rho;
          BLAS::add_scaled(beta, s, z); s.swap(z); // s=beta*s+z
+          //std::cout<<"add3\n";
          rho=rho_new;
       }
       iterations_out=iteration;

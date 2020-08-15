@@ -35,7 +35,7 @@ namespace Util{
         for (int i = 0; i < n_cellx; i++){
             for (int j = 0; j < n_celly; j++){
                 for (int k = 0; k < n_cellz; k++){
-                    if (i == 0 || k == 0 || k == n_cellz - 1 || i == n_cellx - 1 || j == 0){
+                    if (i == 0 || i == n_cellx - 1 || j == 0 || k == 0 || k == n_cellz - 1){
                         // set boundary as solid
                         label[(n_celly * n_cellz) * i + n_cellz * j + k] = 1;
                     }

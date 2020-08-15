@@ -40,6 +40,7 @@ namespace Util{
         std::vector<Eigen::Vector3d> vel;
         std::vector<int> gridIndex;
         void init(MacGrid &mg, std::vector<Eigen::Vector3i> indices);
+        //void add_particles(MacGrid &mg, std::vector<Eigen::Vector3i> add_cells);
         
     };
 

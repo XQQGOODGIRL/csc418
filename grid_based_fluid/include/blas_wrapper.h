@@ -7,6 +7,7 @@
 
 #include <vector>
 #import <Accelerate/Accelerate.h>
+#include <iostream>
 //#include "cblas.h"
 
 namespace BLAS{
@@ -100,7 +101,9 @@ inline void add_scaled(int n, double alpha, const double *x, double *y)
 { cblas_daxpy(n, alpha, x, 1, y, 1); }
 
 inline void add_scaled(double alpha, const std::vector<double> &x, std::vector<double> &y)
-{ cblas_daxpy((int)x.size(), alpha, &x[0], 1, &y[0], 1); }
+{
+    cblas_daxpy((int)x.size(), alpha, &x[0], 1, &y[0], 1);
+}
 
 // scale (x=alpha*x) =========================================================
 
