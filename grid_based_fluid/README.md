@@ -8,8 +8,11 @@
 ![Ellipsoid fluid example](data/ellipsoid_ex.jpg)
 
 ## TODO
+* Make it faaster and prettier!
 * Other advection algorithm
 * Level set and Signed distance 
+* A fluid bunny
+* Curved solid boudary (other weird collision)
 * Marching Cube 
 
 ## To Run
