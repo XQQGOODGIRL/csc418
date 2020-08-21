@@ -6,12 +6,7 @@
 * Marker particle visualization
 * Using pressure solver from Bridson and Müller-Fischer 
 
-An example of an ellipsoid dropping into solid
-
-<img src="https://github.com/XQQquxixi/graphics/blob/master/grid_based_fluid/data/ellipsoid_ex.jpg" width="260" height="210">
-
 An example of an ellipsoid dropping into water
-
 <img src="https://github.com/XQQquxixi/graphics/blob/master/grid_based_fluid/data/0.png" width="250" height="200"> <img src="https://github.com/XQQquxixi/graphics/blob/master/grid_based_fluid/data/1.png" width="250" height="200"> <img src="https://github.com/XQQquxixi/graphics/blob/master/grid_based_fluid/data/final.png" width="250" height="180"> 
 
 
