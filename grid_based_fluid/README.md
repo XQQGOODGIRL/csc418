@@ -4,11 +4,16 @@
 * 3D Mac grid
 * Semi-Lagrangian advection algorithmd
 * Marker particle visualization
-* Using pressure solver from Bridson and Müller-Fischer
-![Ellipsoid fluid example](data/ellipsoid_ex.jpg)
-![example_t0](data/0.png)
-![example_t1](data/1.png)
-![example_t2](data/final.png)
+* Using pressure solver from Bridson and Müller-Fischer 
+
+An example of an ellipsoid dropping into solid
+
+<img src="https://github.com/XQQquxixi/graphics/blob/master/grid_based_fluid/data/ellipsoid_ex.jpg" width="260" height="210">
+
+An example of an ellipsoid dropping into water
+
+<img src="https://github.com/XQQquxixi/graphics/blob/master/grid_based_fluid/data/0.png" width="250" height="200"> <img src="https://github.com/XQQquxixi/graphics/blob/master/grid_based_fluid/data/1.png" width="250" height="200"> <img src="https://github.com/XQQquxixi/graphics/blob/master/grid_based_fluid/data/final.png" width="250" height="180"> 
+
 
 ## TODO
 * Make it faaster and prettier and more interactive!!
