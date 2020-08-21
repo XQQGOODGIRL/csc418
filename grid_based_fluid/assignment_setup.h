@@ -23,33 +23,26 @@ const double l = 0.9;  // container length, width, height
 const double h = 0.5;
 const double w = 0.7;
 const double dx = 0.1; // mac grid cell size
+const int n_z = 14;   // 2*w/dx gives 13 weird bug
 const int n_x = 2*l/dx;
 const int n_y = 4*h/dx;
-const int n_z = 2*w/dx;
 
 // fluid initial
-const Eigen::Vector3d fluid_pos = Eigen::Vector3d(0.12, 0.7, 0.3);
-const double fluid_rx = 0.8;
-const double fluid_ry = 0.55;
-const double fluid_rz = 0.6;
+const Eigen::Vector3d fluid_pos = Eigen::Vector3d(0., 0.7, 0.);
+const double fluid_rx = 0.6;
+const double fluid_ry = 0.35;
+const double fluid_rz = 0.4;
 
 // sim params
 const double g = -9.82;
 double visc = 0.01;
-double density = 100.;
+double density = 10.;
+bool simulation_pause = true;
 
+// ptrs
+Util::MacGrid *mac_grid_ptr;
+Util::MarkerParticle *marker_particles_ptr;
 
-bool key_down_callback(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifiers) {
-    
-    if(key =='S') {
-        std::cout<<"Start simulation\n";
-        
-    } else if(key == 'R') {
-        std::cout<<"Restart simulation\n";
-    }
-    
-    return false;
-}
 
 /*
  add fluids
@@ -57,12 +50,18 @@ bool key_down_callback(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
 void add_fluid(Util::MacGrid mac_grid, std::vector<Eigen::Vector3i> &cells, std::vector<int> &indices){
     // drop fluid ball
     indices.clear();
-    
-    for (int i = 0; i < n_x; i++){
-        for (int j = 0; j < n_y; j++){
-            for (int k = 0; k < n_z; k++){
+    cells.clear();
+    for (int i = 1; i < n_x-1; i++){
+        for (int j = 1; j < n_y; j++){
+            for (int k = 1; k < n_z-1; k++){
+                
                 Eigen::Vector3d min_vert = mac_grid.min_vert + Eigen::Vector3d(dx*(i+0.5), dx*(j+0.5), dx*(k+0.5));
                 if (pow((min_vert[0]-fluid_pos[0])/fluid_rx, 2)+pow((min_vert[1]-fluid_pos[1])/fluid_ry, 2)+pow((min_vert[2]-fluid_pos[2])/fluid_rz, 2) <= 1){
+                    cells.push_back(Eigen::Vector3i(i, j, k));
+                    indices.push_back((n_z*n_y)+i+n_z*j+k);
+                }
+                
+                if (j == 1 || j == 2 || j == 3){
                     cells.push_back(Eigen::Vector3i(i, j, k));
                     indices.push_back((n_z*n_y)+i+n_z*j+k);
                 }
@@ -72,12 +71,26 @@ void add_fluid(Util::MacGrid mac_grid, std::vector<Eigen::Vector3i> &cells, std:
     
 }
 
+bool key_down_callback(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifiers) {
+    
+    if(key =='S') {
+        std::cout<<"Start simulation\n";
+        simulation_pause = !simulation_pause;
+        
+    }
+    
+    return false;
+}
+
 /*
  initialize mac grid for vel, pressure
  define fluid position
  initialize marker particles
 */
 inline void init_state(Util::MacGrid &mac_grid, Util::MarkerParticle &marker_particles){
+    mac_grid_ptr = &mac_grid;
+    marker_particles_ptr = &marker_particles;
+    
     // grid setup
     mac_grid.init(l, w, h, dx);
     // marker particle setup
@@ -85,10 +98,11 @@ inline void init_state(Util::MacGrid &mac_grid, Util::MarkerParticle &marker_par
     std::vector<Eigen::Vector3i> cells;
     add_fluid(mac_grid, cells, indices);
     marker_particles.init(mac_grid, cells);
+    //std::cout<<marker_particles.pos;
     
     // Defining the container
     Eigen::Vector3d m = mac_grid.min_vert + Eigen::Vector3d(dx, dx, dx);
-    Eigen::Vector3d M = mac_grid.max_vert;
+    Eigen::Vector3d M = mac_grid.max_vert + Eigen::Vector3d(-dx, 0., -dx);
     
     // Corners of the container
     Eigen::MatrixXd V_box(8,3);
@@ -121,7 +135,7 @@ inline void init_state(Util::MacGrid &mac_grid, Util::MarkerParticle &marker_par
     // Plot the the container
     for (unsigned i=0;i<E_box.rows(); ++i)
         Visualize::viewer().data().add_edges(V_box.row(E_box(i,0)),V_box.row(E_box(i,1)),Eigen::RowVector3d(1,0,0));
-    
+
     // set up igl menu
     Visualize::viewer_menu().callback_draw_custom_window = [&]()
     {
@@ -133,7 +147,7 @@ inline void init_state(Util::MacGrid &mac_grid, Util::MarkerParticle &marker_par
                      ImGuiWindowFlags_NoSavedSettings
                      );
         
-        // add var
+        // add interactive var
         ImGui::PushItemWidth(-80);
         ImGui::DragScalar("Visc", ImGuiDataType_Double, &visc, 0.1, 0, 0, "%.4f");
         ImGui::PopItemWidth();
@@ -176,19 +190,18 @@ double trilinear_vel(Eigen::VectorXd v, Eigen::Vector3d pos, int axis){
     int ny = n_y;
     int nz = n_z;
     if (axis == 0){
-        min_vert = Eigen::Vector3d(-l, -h + 0.5 * dx, -w + 0.5 * dx);
+        min_vert = Eigen::Vector3d(-10*l, -10*h+5 * dx, -10*w+5 * dx);
     }else if (axis == 1){
-        min_vert = Eigen::Vector3d(-l + 0.5 * dx, -h, -w + 0.5 * dx);
+        min_vert = Eigen::Vector3d(-10*l+5 * dx, -10*h+5 *dx, -10*w);
         ny++;
     }else {
-        min_vert = Eigen::Vector3d(-l + 0.5 * dx, -h + 0.5 * dx, -w);
+        min_vert = Eigen::Vector3d(-10*l + 5 * dx, -10*h + 5 * dx, -10*w);
         nz++;
     }
     
-    int i = (int)floor((pos[0] - min_vert[0])/dx);
-    int j = (int)floor((pos[1] - min_vert[1])/dx);
-    int k = (int)floor((pos[2] - min_vert[2])/dx);
-    //std::cout<<"trilinear"<<axis<<"l: "<<l<<" "<<pos[0]<<" "<<min_vert[0]<<" "<<i<<" "<<j<<" "<<k<<std::endl;
+    int i = (int)floor((10*pos[0] - min_vert[0])/10/dx);
+    int j = (int)floor((10*pos[1] - min_vert[1])/10/dx);
+    int k = (int)floor((10*pos[2] - min_vert[2])/10/dx);
     double c000 = v[(ny * nz) * i + nz * j + k];
     double c100 = v[(ny * nz) * (i+1) + nz * j + k]; // x
     double c001 = v[(ny * nz) * i + nz * (j+1) + k]; // y
@@ -197,11 +210,11 @@ double trilinear_vel(Eigen::VectorXd v, Eigen::Vector3d pos, int axis){
     double c110 = v[(ny * nz) * (i+1) + nz * j + k+1]; // xz
     double c011 = v[(ny * nz) * i + nz * (j+1) + k+1]; // yz
     double c111 = v[(ny * nz) * (i+1) + nz * (j+1) + k+1]; // xyz
-    Eigen::Vector3d min_corner = min_vert + Eigen::Vector3d(i * dx, j * dx, k * dx);
+    Eigen::Vector3d min_corner = min_vert + Eigen::Vector3d(10*i * dx, 10*j * dx, 10*k * dx);
     
-    double xd = (pos[0] - min_corner[0]) / dx;
-    double yd = (pos[1] - min_corner[1]) / dx;
-    double zd = (pos[2] - min_corner[2]) / dx;
+    double xd = (10*pos[0] - min_corner[0]) /10 / dx;
+    double yd = (10*pos[1] - min_corner[1]) /10/ dx;
+    double zd = (10*pos[2] - min_corner[2]) /10/ dx;
     
     double c00 = c000 * (1 - xd) + c100 * xd;
     double c01 = c001 * (1 - xd) + c101 * xd;
@@ -210,7 +223,7 @@ double trilinear_vel(Eigen::VectorXd v, Eigen::Vector3d pos, int axis){
     
     double c0 = c00 * (1-zd) + c10 * zd;
     double c1 = c01 * (1-zd) + c11 * zd;
-    
+
     return c0 * (1-yd) + c1 * yd;
 }
 
@@ -257,15 +270,17 @@ void move_in(Eigen::Vector3d &curr_p, Eigen::Vector3d prev_pos){
     bool flag = false;
     for (int i = 0; i < potential_t.size(); i++){
         if (potential_t[i] > 0 && potential_t[i] < max_t){
-            curr_p += (potential_t[i] + 0.01) * trajectory;
+            curr_p += potential_t[i] * trajectory;
             flag = true;
             break;
         }
     }
+    // DEBUGGING
     if (!flag){
         std::cout<<"tra: "<<trajectory<<std::endl;
         std::cout<<"out pos: "<<curr_p<<"\n"<<"in pos: "<<prev_pos<<std::endl;
         curr_p = prev_pos;
+        //exit(1);
     }
 }
 
@@ -351,51 +366,52 @@ int getNumNonSolid(Util::MacGrid mac_grid, int i) {
     return n;
 }
 
-void getMatrix(Util::MacGrid &mac_grid, std::vector<int> fluid_indices, std::unordered_map<int, int> fluid_cell_map, SparseMatrixd &matrix){
+void getMatrix(Util::MacGrid &mac_grid, std::vector<int> fluid_indices, std::unordered_map<int, int> fluid_cell_map, SparseMatrixd &matrix, double dt){
     matrix.zero();
+    double scale = dt / density / dx / dx;
     for (int i = 0; i < fluid_indices.size(); i++) {
         int target = fluid_indices[i];
         std::vector<unsigned int> indices;
         std::vector<double> values;
         int n = getNumNonSolid(mac_grid, target);
         indices.push_back(i);
-        values.push_back((double)n);
+        values.push_back(scale * n);
         if (mac_grid.label[target - n_z*n_y] == 2) {
             // the index of target-1 in fluid_cells
             auto search = fluid_cell_map.find(target - n_z*n_y);
             int ind = search->second;
             indices.push_back(ind);
-            values.push_back(1.);
+            values.push_back(-scale);
         }
         if (mac_grid.label[target - n_z] == 2) {
             auto search = fluid_cell_map.find(target - n_z);
             int ind = search->second;
             indices.push_back(ind);
-            values.push_back(1.);
+            values.push_back(-scale);
         }
         if (mac_grid.label[target - 1] == 2) {
             auto search = fluid_cell_map.find(target - 1);
             int ind = search->second;
             indices.push_back(ind);
-            values.push_back(1.);
+            values.push_back(-scale);
         }
         if (mac_grid.label[target + 1] == 2) {
             auto search = fluid_cell_map.find(target + 1);
             int ind = search->second;
             indices.push_back(ind);
-            values.push_back(1.);
+            values.push_back(-scale);
         }
         if (mac_grid.label[target + n_z] == 2) {
             auto search = fluid_cell_map.find(target + n_z);
             int ind = search->second;
             indices.push_back(ind);
-            values.push_back(1.);
+            values.push_back(-scale);
         }
         if (mac_grid.label[target + n_z*n_y] == 2) {
             auto search = fluid_cell_map.find(target + n_y*n_z);
             int ind = search->second;
             indices.push_back(ind);
-            values.push_back(1.);
+            values.push_back(-scale);
         }
         matrix.add_sparse_row(i, indices, values);
     }
@@ -445,11 +461,11 @@ void project(Util::MacGrid &mac_grid, Util::MarkerParticle &marker_particles, do
     PCGSolver<double> solver;
     std::unordered_map<int, int> fluid_cell_map;
     for (int i = 0; i < fluid_indices.size(); i++){
-        // index into mac grid vs index into fluid cells
+        // index into mac grid : index into fluid cells
         fluid_cell_map.insert({fluid_indices[i], i});
     }
     SparseMatrixd matrix(fluid_indices.size(), 7);
-    getMatrix(mac_grid, fluid_indices, fluid_cell_map, matrix);
+    getMatrix(mac_grid, fluid_indices, fluid_cell_map, matrix, dt);
     std::vector<double> rhs;
     getNegDivergence(mac_grid, fluid_cells, rhs);
     
@@ -626,30 +642,30 @@ double calculate_dt(Util::MacGrid mac_grid, Util::MarkerParticle &marker_particl
         }
     }
     double dt = 5. * dx / u_max;
-    //if (dt > 0.03){
-      //  return 0.03;
-    //}
-
+    if (dt > 0.1){
+        return 0.1;
+    }
     return dt;
 }
 
 inline void simulate(Util::MacGrid &mac_grid, Util::MarkerParticle &marker_particles){
-    std::vector<Eigen::Vector3i> fluid_cells;
-    std::vector<int> fluid_indices;
-    
-    update_label(mac_grid, marker_particles, fluid_cells, fluid_indices);
-    double dt = calculate_dt(mac_grid, marker_particles, fluid_cells);
-    std::cout<<"end calc dt: "<<dt<<"\n";
-    
-    advect_sl(mac_grid, dt); // semi lagrangian
-    //advect_flip(mac_grid, dt); // flip
-    
-    body_forces(dt, mac_grid, fluid_cells);
-    project(mac_grid, marker_particles, dt, fluid_indices, fluid_cells);  // pressure, incompressibility, boundary cndition
-    //extrapolate();
-    update_marker_particles(mac_grid, marker_particles, dt);
-    t += dt;
-    iter++;
+    if (!simulation_pause){
+        std::vector<Eigen::Vector3i> fluid_cells;
+        std::vector<int> fluid_indices;
+        
+        update_label(mac_grid, marker_particles, fluid_cells, fluid_indices);
+        double dt = calculate_dt(mac_grid, marker_particles, fluid_cells);
+        std::cout<<"end calc dt: "<<dt<<"\n";
+        advect_sl(mac_grid, dt); // semi lagrangian
+        //advect_flip(mac_grid, dt); // flip
+        
+        body_forces(dt, mac_grid, fluid_cells);
+        project(mac_grid, marker_particles, dt, fluid_indices, fluid_cells);  // pressure, incompressibility, boundary cndition
+        //extrapolate();
+        update_marker_particles(mac_grid, marker_particles, dt);
+        t += dt;
+        iter++;
+    }
 }
 
 inline void draw(Util::MarkerParticle marker_particles){

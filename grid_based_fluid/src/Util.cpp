@@ -19,7 +19,7 @@ namespace Util{
         
         n_cellx = 2*l / grid_size;  // # of cells
         n_celly = 4*h / grid_size;
-        n_cellz = 2*w / grid_size;
+        n_cellz = 14;  // 2w/dx doesnt work weird bug
 
         p.resize(n_cellx * n_celly * n_cellz);
         vx.resize((n_cellx + 1) * n_celly * n_cellz);
@@ -62,7 +62,7 @@ namespace Util{
         int n_x = mg.n_cellx;
         int n_y = mg.n_celly;
         int n_z = mg.n_cellz;
-        Eigen::Vector3d min_vert = mg.min_vert;
+        Eigen::Vector3d min_vert = mg.min_vert + Eigen::Vector3d(dx, dx, dx);
         
         for (int n = 0; n < cells.size(); n++){
             int a = cells[n][0];
