@@ -19,33 +19,50 @@
 double t = 0.;
 int iter = 0;
 // grid const info
-const double l = 0.9;  // container length, width, height
-const double h = 0.5;
-const double w = 0.7;
+const double l = 0.6;  // container length, width, height
+const double h = 0.4;
+const double w = 0.6;
 const double dx = 0.1; // mac grid cell size
-const int n_z = 14;   // 2*w/dx gives 13 weird bug
-const int n_x = 2*l/dx;
-const int n_y = 4*h/dx;
+// handle double error
+const int n_z = (int)ceil(2*w/dx);
+const int n_x = (int)ceil(2*l/dx);
+const int n_y = (int)ceil(4*h/dx);
 
 // fluid initial
-const Eigen::Vector3d fluid_pos = Eigen::Vector3d(0., 0.7, 0.);
-const double fluid_rx = 0.6;
-const double fluid_ry = 0.35;
-const double fluid_rz = 0.4;
+const Eigen::Vector3d fluid_pos = Eigen::Vector3d(0., 0.8, 0.);
+const double fluid_rx = 0.3;
+const double fluid_ry = 0.3;
+const double fluid_rz = 0.3;
 
 // sim params
 const double g = -9.82;
 double visc = 0.01;
-double density = 10.;
+double density = 100.;
 bool simulation_pause = true;
 
 // ptrs
 Util::MacGrid *mac_grid_ptr;
 Util::MarkerParticle *marker_particles_ptr;
 
+/* Some control keys to interact with the fluid
+ S: start/pause
+ M: mesh/particle
+ */
+bool key_down_callback(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifiers) {
+    
+    if(key =='S') {
+        simulation_pause = !simulation_pause;
+    }
+    if (key=='M'){
+        // TODO
+    }
+    
+    return false;
+}
+
 
 /*
- add fluids
+ Add fluids (this is an example of an elipsoid into water)
  */
 void add_fluid(Util::MacGrid mac_grid, std::vector<Eigen::Vector3i> &cells, std::vector<int> &indices){
     // drop fluid ball
@@ -54,38 +71,26 @@ void add_fluid(Util::MacGrid mac_grid, std::vector<Eigen::Vector3i> &cells, std:
     for (int i = 1; i < n_x-1; i++){
         for (int j = 1; j < n_y; j++){
             for (int k = 1; k < n_z-1; k++){
-                
                 Eigen::Vector3d min_vert = mac_grid.min_vert + Eigen::Vector3d(dx*(i+0.5), dx*(j+0.5), dx*(k+0.5));
-                if (pow((min_vert[0]-fluid_pos[0])/fluid_rx, 2)+pow((min_vert[1]-fluid_pos[1])/fluid_ry, 2)+pow((min_vert[2]-fluid_pos[2])/fluid_rz, 2) <= 1){
+                if (pow((min_vert[0]-fluid_pos[0])/fluid_rx, 2)+pow((min_vert[1]-fluid_pos[1])/fluid_ry, 2)+pow((min_vert[2]-fluid_pos[2])/fluid_rz, 2) < 1){
                     cells.push_back(Eigen::Vector3i(i, j, k));
                     indices.push_back((n_z*n_y)+i+n_z*j+k);
                 }
                 
-                if (j == 1 || j == 2 || j == 3){
+                if (j == 1 || j == 2 || j==3){
                     cells.push_back(Eigen::Vector3i(i, j, k));
                     indices.push_back((n_z*n_y)+i+n_z*j+k);
                 }
             }
         }
     }
-    
 }
 
-bool key_down_callback(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifiers) {
-    
-    if(key =='S') {
-        std::cout<<"Start simulation\n";
-        simulation_pause = !simulation_pause;
-        
-    }
-    
-    return false;
-}
 
 /*
- initialize mac grid for vel, pressure
- define fluid position
- initialize marker particles
+ initialize mac grid vel, pressure, label
+ add fluid
+ initialize marker particles pos
 */
 inline void init_state(Util::MacGrid &mac_grid, Util::MarkerParticle &marker_particles){
     mac_grid_ptr = &mac_grid;
@@ -98,7 +103,6 @@ inline void init_state(Util::MacGrid &mac_grid, Util::MarkerParticle &marker_par
     std::vector<Eigen::Vector3i> cells;
     add_fluid(mac_grid, cells, indices);
     marker_particles.init(mac_grid, cells);
-    //std::cout<<marker_particles.pos;
     
     // Defining the container
     Eigen::Vector3d m = mac_grid.min_vert + Eigen::Vector3d(dx, dx, dx);
@@ -162,46 +166,45 @@ inline void init_state(Util::MacGrid &mac_grid, Util::MarkerParticle &marker_par
     Visualize::viewer().callback_key_down = key_down_callback;
 }
 
+
 /*
- get index into vel field with index i, j, k ================================
+ Get index into mac grid vel field with index i, j, k ================================
  */
 int getIndexIntoVx(int i, int j, int k){
-    int res = (n_y*n_z)*i+n_z*j+k;
-    return res;
+    return (n_y*n_z)*i+n_z*j+k;
 }
 
 int getIndexIntoVy(int i, int j, int k){
-    int res = (n_y*n_z)*i+n_z*j+k;
-    return res + i * n_z;
+    return ((n_y+1)*n_z)*i+n_z*j+k;
     
 }
 
 int getIndexIntoVz(int i, int j, int k){
-    int res = (n_y*n_z)*i+n_z*j+k;
-    return res + i * n_y + j;
+    return (n_y*(n_z+1))*i+(n_z+1)*j+k;
 }
 
+
 /*
- interpolations================================================================
+ Interpolations================================================================
  */
-double trilinear_vel(Eigen::VectorXd v, Eigen::Vector3d pos, int axis){
+double trilinear_vel(Eigen::VectorXd v, Eigen::Vector3d pos, int axis, bool debug=false){
     Eigen::Vector3d min_vert;
     int nx = n_x;
     int ny = n_y;
     int nz = n_z;
     if (axis == 0){
-        min_vert = Eigen::Vector3d(-10*l, -10*h+5 * dx, -10*w+5 * dx);
+        min_vert = Eigen::Vector3d(-l, -h+0.5 * dx, -w+0.5*dx);
     }else if (axis == 1){
-        min_vert = Eigen::Vector3d(-10*l+5 * dx, -10*h+5 *dx, -10*w);
+        min_vert = Eigen::Vector3d(-l+0.5*dx, -h, -w+0.5*dx);
         ny++;
     }else {
-        min_vert = Eigen::Vector3d(-10*l + 5 * dx, -10*h + 5 * dx, -10*w);
+        min_vert = Eigen::Vector3d(-l+0.5*dx, -h+0.5*dx, -w);
         nz++;
     }
     
-    int i = (int)floor((10*pos[0] - min_vert[0])/10/dx);
-    int j = (int)floor((10*pos[1] - min_vert[1])/10/dx);
-    int k = (int)floor((10*pos[2] - min_vert[2])/10/dx);
+    int i = (int)floor((pos[0] - min_vert[0])/dx);
+    int j = (int)floor((pos[1] - min_vert[1])/dx);
+    int k = (int)floor((pos[2] - min_vert[2])/dx);
     double c000 = v[(ny * nz) * i + nz * j + k];
     double c100 = v[(ny * nz) * (i+1) + nz * j + k]; // x
     double c001 = v[(ny * nz) * i + nz * (j+1) + k]; // y
@@ -210,11 +213,11 @@ double trilinear_vel(Eigen::VectorXd v, Eigen::Vector3d pos, int axis){
     double c110 = v[(ny * nz) * (i+1) + nz * j + k+1]; // xz
     double c011 = v[(ny * nz) * i + nz * (j+1) + k+1]; // yz
     double c111 = v[(ny * nz) * (i+1) + nz * (j+1) + k+1]; // xyz
-    Eigen::Vector3d min_corner = min_vert + Eigen::Vector3d(10*i * dx, 10*j * dx, 10*k * dx);
+    Eigen::Vector3d min_corner = min_vert + Eigen::Vector3d(i * dx, j * dx, k * dx);
     
-    double xd = (10*pos[0] - min_corner[0]) /10 / dx;
-    double yd = (10*pos[1] - min_corner[1]) /10/ dx;
-    double zd = (10*pos[2] - min_corner[2]) /10/ dx;
+    double xd = (pos[0] - min_corner[0])/ dx;
+    double yd = (pos[1] - min_corner[1])/ dx;
+    double zd = (pos[2] - min_corner[2])/ dx;
     
     double c00 = c000 * (1 - xd) + c100 * xd;
     double c01 = c001 * (1 - xd) + c101 * xd;
@@ -227,24 +230,24 @@ double trilinear_vel(Eigen::VectorXd v, Eigen::Vector3d pos, int axis){
     return c0 * (1-yd) + c1 * yd;
 }
 
+// TODO
 void catmull_rom(){
     
 }
 
-/*
- other functions ==============================================
- */
-void extrapolate(){
-    
-}
 
-Eigen::Vector3d getVel(Util::MacGrid mac_grid, Eigen::Vector3d pos){
-    double x = trilinear_vel(mac_grid.vx, pos, 0);
-    double y = trilinear_vel(mac_grid.vy, pos, 1);
-    double z = trilinear_vel(mac_grid.vz, pos, 2);
+/*
+ Other functions =======================================================
+ */
+/* get the interpolated velocity at pos */
+Eigen::Vector3d getVel(Util::MacGrid mac_grid, Eigen::Vector3d pos, bool debug=false){
+    double x = trilinear_vel(mac_grid.vx, pos, 0, debug);
+    double y = trilinear_vel(mac_grid.vy, pos, 1, debug);
+    double z = trilinear_vel(mac_grid.vz, pos, 2, debug);
     return Eigen::Vector3d(x, y, z);
 }
 
+/* check if curr_p is inside the container */
 bool inSolid(Eigen::Vector3d curr_p){
     return curr_p[0] < -l+dx || curr_p[0] > l-dx || curr_p[1] < -h+dx || curr_p[1] > 3*h || curr_p[2] < -w+dx || curr_p[2] > w-dx;
 }
@@ -252,7 +255,6 @@ bool inSolid(Eigen::Vector3d curr_p){
 /* move to nearest non solid point along the trajectory */
 void move_in(Eigen::Vector3d &curr_p, Eigen::Vector3d prev_pos){
     Eigen::Vector3d trajectory = prev_pos - curr_p;
-    double max_t = trajectory.norm();
     std::vector<double> potential_t;
     // handle paralle line
     if (trajectory[0] != 0){
@@ -261,38 +263,29 @@ void move_in(Eigen::Vector3d &curr_p, Eigen::Vector3d prev_pos){
     }
     if (trajectory[1] != 0){
         potential_t.push_back((-h+dx - curr_p[1]) / trajectory[1]);
+        potential_t.push_back((3*h - curr_p[1]) / trajectory[1]);
     }
     if (trajectory[2] != 0){
         potential_t.push_back((-w+dx - curr_p[2])/trajectory[2]);
         potential_t.push_back((w - dx - curr_p[2])/ trajectory[2]);
     }
     
-    bool flag = false;
     for (int i = 0; i < potential_t.size(); i++){
-        if (potential_t[i] > 0 && potential_t[i] < max_t){
+        if (potential_t[i] > 0 && potential_t[i] <= 1.0){
             curr_p += potential_t[i] * trajectory;
-            flag = true;
             break;
         }
     }
-    // DEBUGGING
-    if (!flag){
-        std::cout<<"tra: "<<trajectory<<std::endl;
-        std::cout<<"out pos: "<<curr_p<<"\n"<<"in pos: "<<prev_pos<<std::endl;
-        curr_p = prev_pos;
-        //exit(1);
-    }
 }
 
+
 /*
- integration =====================================================
+ Runge kutta integration =====================================================
  */
 Eigen::Vector3d RK4(Util::MacGrid mac_grid, Eigen::Vector3d pos, double dt){
-    Eigen::Vector3d v1 = getVel(mac_grid, pos);
-    //std::cout<<"v1: "<<v1<<std::endl;
-    //std::cout<<pos + 0.5 * dt * v1<<v1<<std::endl;
-    Eigen::Vector3d v2 = getVel(mac_grid, pos + 0.5 * dt * v1);
-    Eigen::Vector3d v3 = getVel(mac_grid, pos + 0.75 * dt * v2);
+    Eigen::Vector3d v1 = getVel(mac_grid, pos, false);
+    Eigen::Vector3d v2 = getVel(mac_grid, pos + 0.5 * dt * v1, false);
+    Eigen::Vector3d v3 = getVel(mac_grid, pos + 0.75 * dt * v2, false);
     return pos + dt * (2./9 * v1 + 1./3 * v2 + 4./9 * v3);
 }
 
@@ -303,8 +296,9 @@ Eigen::Vector3d backward_RK4(Util::MacGrid mac_grid, Eigen::Vector3d pos, double
     return pos - dt * (2./9 * v1 + 1./3 * v2 + 4./9 * v3);
 }
 
+
 /*
- pressure update ==========================================================
+ Pressure Solver ==========================================================
  */
 void update_pressure(Util::MacGrid &mac_grid, std::vector<double> result, std::vector<int> fluid_indices){
     mac_grid.p.setZero();
@@ -314,6 +308,7 @@ void update_pressure(Util::MacGrid &mac_grid, std::vector<double> result, std::v
     }
 }
 
+/* update velocity in grids according to new pressure */
 void update_vel(Util::MacGrid &mac_grid, double dt){
     for (int i = 1; i < n_x; i++) {
         for (int j = 1; j < n_y; j++) {
@@ -333,9 +328,10 @@ void update_vel(Util::MacGrid &mac_grid, double dt){
                     mac_grid.vz[getIndexIntoVz(i, j, k)] -= dt * (mac_grid.p[curr]-mac_grid.p[prevz]) / density / dx;
                 }
                 
-                // boundary cndition
+                // boundary condition
                 if (mac_grid.label[curr] == 1){
                     mac_grid.vx[getIndexIntoVx(i, j, k)] = 0.;
+                    mac_grid.vy[getIndexIntoVy(i, j, k)] = 0.;
                     mac_grid.vz[getIndexIntoVz(i, j, k)] = 0.;
                 }
                 if (mac_grid.label[prevx] == 1){
@@ -352,6 +348,7 @@ void update_vel(Util::MacGrid &mac_grid, double dt){
     }
 }
 
+/* get the number of non solid (air/fluid) neighbours */
 int getNumNonSolid(Util::MacGrid mac_grid, int i) {
     Eigen::VectorXi label = mac_grid.label;
 
@@ -366,6 +363,7 @@ int getNumNonSolid(Util::MacGrid mac_grid, int i) {
     return n;
 }
 
+/* get the matrix A of Ap=d described in equation (4.25) */
 void getMatrix(Util::MacGrid &mac_grid, std::vector<int> fluid_indices, std::unordered_map<int, int> fluid_cell_map, SparseMatrixd &matrix, double dt){
     matrix.zero();
     double scale = dt / density / dx / dx;
@@ -418,6 +416,7 @@ void getMatrix(Util::MacGrid &mac_grid, std::vector<int> fluid_indices, std::uno
     
 }
 
+/* get the vector d of Ap=d described in equation (4.25) */
 void getNegDivergence(Util::MacGrid &mac_grid, std::vector<Eigen::Vector3i> fluid_cells, std::vector<double> &rhs){
     double scale = 1. / dx;
     for (int i = 0; i < fluid_cells.size(); i++) {
@@ -457,6 +456,7 @@ void getNegDivergence(Util::MacGrid &mac_grid, std::vector<Eigen::Vector3i> flui
     }
 }
 
+/* project use PCG pressure solver */
 void project(Util::MacGrid &mac_grid, Util::MarkerParticle &marker_particles, double dt, std::vector<int> fluid_indices, std::vector<Eigen::Vector3i> fluid_cells){
     PCGSolver<double> solver;
     std::unordered_map<int, int> fluid_cell_map;
@@ -479,8 +479,9 @@ void project(Util::MacGrid &mac_grid, Util::MarkerParticle &marker_particles, do
     
 }
 
+
 /*
- advection: semi lagrange and flip =====================================================
+ Advection: semi lagrange and flip =====================================================
  */
 void advectX_sl(Util::MacGrid &mac_grid, double dt){
     for (int i = 1; i < n_x; i++){
@@ -538,7 +539,12 @@ void advect_sl(Util::MacGrid &mac_grid, double dt){
     advectZ_sl(mac_grid, dt);
 }
 
+/* extrapolate the velocity from marker particle if flip advection is used */
+void extrapolate(){
+    
+}
 
+// TODO
 void advect_flip(Util::MacGrid &mac_grid, double dt){
     //advectX_flip(mac_grid, dt);
     //advectY_flip(mac_grid, dt);
@@ -546,8 +552,9 @@ void advect_flip(Util::MacGrid &mac_grid, double dt){
     
 }
 
+
 /*
- body forces ==========================================================
+ Body forces ==========================================================
  */
 void body_forces(double dt, Util::MacGrid &mac_grid, std::vector<Eigen::Vector3i> fluid_cells){
     // apply gravity to fluid cells
@@ -565,21 +572,13 @@ void body_forces(double dt, Util::MacGrid &mac_grid, std::vector<Eigen::Vector3i
     }
 }
 
-/* marker particle update ==================================================
+
+/*
+ marker particle update ==================================================
  */
 void update_marker_particles(Util::MacGrid &mac_grid, Util::MarkerParticle &marker_particles, double dt){
     int n = marker_particles.gridIndex.size();
     for (int i = 0; i < n; i++) {
-        // update vel (flip advection)
-        /*
-        Eigen::Vector3d v = marker_particles.vel[i];
-        // TODO: pass old mac_grid vel
-        Eigen::Vector3d v0 = getVel(mac_grid, marker_particles.pos.row(i));
-        Eigen::Vector3d v_pic = getVel(mac_grid, marker_particles.pos.row(i));
-        Eigen::Vector3d v_flip = marker_particles.vel[i] + v_pic - v0;
-        v = 0.01 * v_pic + 0.99 * v_flip;
-        marker_particles.vel[i] = v;
-         */
         // update pos
         Eigen::Vector3d curr_p = RK4(mac_grid, marker_particles.pos.row(i), dt);
         // out of non solid range
@@ -593,11 +592,16 @@ void update_marker_particles(Util::MacGrid &mac_grid, Util::MarkerParticle &mark
         int c = (int)floor((curr_p[2]+w) / dx);
         marker_particles.gridIndex[i] = (n_y*n_z)*a+n_z*b+c;
     }
-    
 }
 
+// TODO: flip advection
+void update_marker_particles_flip(){
+    // update vel
+}
+
+
 /*
- grid update ====================================================================
+ Label update ====================================================================
  */
 void update_label(Util::MacGrid &mac_grid, Util::MarkerParticle &marker_particles, std::vector<Eigen::Vector3i> &fluid_cells, std::vector<int> &fluid_indices){
     fluid_indices.clear();
@@ -621,8 +625,9 @@ void update_label(Util::MacGrid &mac_grid, Util::MarkerParticle &marker_particle
     }
 }
 
+
 /*
- get time step ==================================================================
+ Time step ==================================================================
  */
 double calculate_dt(Util::MacGrid mac_grid, Util::MarkerParticle &marker_particles, std::vector<Eigen::Vector3i> fluid_cells){
     double u_max = sqrt(-5*g*dx);
@@ -642,37 +647,44 @@ double calculate_dt(Util::MacGrid mac_grid, Util::MarkerParticle &marker_particl
         }
     }
     double dt = 5. * dx / u_max;
+    
+    // 0.1 by experiment
     if (dt > 0.1){
         return 0.1;
     }
+    
     return dt;
 }
 
+
+/*
+ Main simulation loop
+ */
 inline void simulate(Util::MacGrid &mac_grid, Util::MarkerParticle &marker_particles){
     if (!simulation_pause){
         std::vector<Eigen::Vector3i> fluid_cells;
         std::vector<int> fluid_indices;
-        
         update_label(mac_grid, marker_particles, fluid_cells, fluid_indices);
         double dt = calculate_dt(mac_grid, marker_particles, fluid_cells);
-        std::cout<<"end calc dt: "<<dt<<"\n";
-        advect_sl(mac_grid, dt); // semi lagrangian
-        //advect_flip(mac_grid, dt); // flip
-        
+        // semi lagrangian advection
+        advect_sl(mac_grid, dt);
+        // apply gravity
         body_forces(dt, mac_grid, fluid_cells);
-        project(mac_grid, marker_particles, dt, fluid_indices, fluid_cells);  // pressure, incompressibility, boundary cndition
-        //extrapolate();
+        // incompressibility, boundary cndition
+        project(mac_grid, marker_particles, dt, fluid_indices, fluid_cells);
         update_marker_particles(mac_grid, marker_particles, dt);
         t += dt;
         iter++;
     }
 }
 
+
+/*
+ Visualization
+ */
 inline void draw(Util::MarkerParticle marker_particles){
     Visualize::update_particle_positions(marker_particles.pos);
 }
-
-
 
 #endif
 
